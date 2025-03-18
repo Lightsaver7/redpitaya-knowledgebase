@@ -186,6 +186,8 @@ Please make sure that the *PATH environment variable* is set correctly. See :ref
 
       <a href="https://devblogs.microsoft.com/oldnewthing/20210726-00/?p=105483" target="_blank">Diagnosing why your batch file prints a garbage character, one character, and nothing more</a>
 
+ ..! ADD LINK TO SSH CONNECTION
+
 .. tabs::
 
     .. tab:: OS version 1.04 or older

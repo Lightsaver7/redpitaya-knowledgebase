@@ -1,271 +1,270 @@
+
 ############################
 Moving average on Red Pitaya
 ############################
 
-On the Red Pitaya development board, we will build a signal scaling and filtering circuit with a small averaging filter that calculates the average of four consecutive samples.
-This tutorial will also show you how to create a copy of the v0.94 project in a different location on the disk. We will create a new folder in the Examples directory and move our project into it. The second option is to create an already working project by running the *make_project.tcl* script with the "Simple Moving Average" line uncommented.
+.. note::
 
-=========================
-Creation of a new project
-=========================
+    The instructions here are an example for STEMlab 125-14. For other board models, different flags must be used. The design source structure may differ from the one seen in the pictures here. Please see the :ref:`Vivado Project Setup <create_fpga_project>` for more information.
 
-1) Create a new folder called "Test_Moving_Average" in **/RedPitaya-FPGA/prj/Examples**.
-2) Copy all files from **/RedPitaya-FPGA/prj/v0.94** into the newly created folder.
-3) Create a new file named **red_pitaya_proc.vhd** in the "Test_Moving_Average/rtl" directory.
-4) Copy the framework of filter development into the file.
 
-.. code-block:: vhdl
+Description
+=============
 
-    library IEEE;
-    use IEEE.STD_LOGIC_1164.all;
-    use IEEE.NUMERIC_STD.all;
-    
-    entity red_pitaya_proc is
-    port (
-        clk_i       : in  std_logic;                      -- bus clock
-        rstn_i      : in  std_logic;                      -- bus reset - active low
+We will now build a signal scaling and filtering circuit with a small averaging filter that calculates the average of one to three consecutive samples.
+The project here can be, later on, easily expanded to average even more samples. We will start the project from the base v0.94 and modify it, while explaining the principles behind each added line of code.
+
+
+1. Create a new v0.94 project. The files are located in the *RedPitaya-FPGA-new\prj\v0.94* directory.
+
+#. Create a new file named **red_pitaya_proc.vhd** in the "rtl" subdirectory. Copy the framework of the filter into the file.
+
+    .. code-block:: vhdl
+
+        library IEEE;
+        use IEEE.STD_LOGIC_1164.all;
+        use IEEE.NUMERIC_STD.all;
         
-        sys_addr    : in  std_logic_vector(31 downto 0);  -- bus address
-        sys_wdata   : in  std_logic_vector(31 downto 0);  -- bus write data
-        sys_wen     : in  std_logic;                      -- bus write enable
-        sys_ren     : in  std_logic;                      -- bus read enable
-        sys_rdata   : out std_logic_vector(31 downto 0);  -- bus read data
-        sys_err     : out std_logic;                      -- bus error indicator
-        sys_ack     : out std_logic;                      -- bus acknowledge signal
-    
-        adc_i : in  std_logic_vector(13 downto 0);
-        adc_o : out std_logic_vector(13 downto 0)
-        );
-    end red_pitaya_proc;
-    
-    architecture Behavioral of red_pitaya_proc is
-        component moving_average
-            port (
-                data_i   : in std_logic_vector (13 downto 0);
-                clk_i    : in std_logic;
-                rstn_i   : in std_logic;
-                tag_i    : in unsigned (1 downto 0);
-                data_o   : out std_logic_vector (13 downto 0));
-        end component;
-    
-        constant ZERO       : std_logic_vector(31 downto 0) := (others => '0');         -- Padding registers
-        signal tag_i: unsigned(1 downto 0) := "01";
-    
-    
-    begin
-    
-    rp_average: moving_average
-            port map (
-                data_i => adc_i,
-                clk_i => clk_i,
-                rstn_i => rstn_i,
-                tag_i => tag_i,
-                data_o => adc_o
+        entity red_pitaya_proc is
+        port (
+            clk_i       : in  std_logic;                      -- bus clock
+            rstn_i      : in  std_logic;                      -- bus reset - active low
+            
+            sys_addr    : in  std_logic_vector(31 downto 0);  -- bus address
+            sys_wdata   : in  std_logic_vector(31 downto 0);  -- bus write data
+            sys_wen     : in  std_logic;                      -- bus write enable
+            sys_ren     : in  std_logic;                      -- bus read enable
+            sys_rdata   : out std_logic_vector(31 downto 0);  -- bus read data
+            sys_err     : out std_logic;                      -- bus error indicator
+            sys_ack     : out std_logic;                      -- bus acknowledge signal
+        
+            adc_i : in  std_logic_vector(13 downto 0);
+            adc_o : out std_logic_vector(13 downto 0)
             );
-    
-    pbusr: process(clk_i)
-    begin
-        if(rising_edge(clk_i)) then
-            if (rstn_i = '0') then
-                sys_ack <= '0';
-                tag_i <= "01";
-            else
-                sys_ack <= sys_wen or sys_ren;  -- acknowledge transactions
-                if sys_wen='1' then
-                    if sys_addr(19 downto 0) = X"00008" then
-                        tag_i <= unsigned(sys_wdata(1 downto 0));
+        end red_pitaya_proc;
+        
+        architecture Behavioral of red_pitaya_proc is
+            component moving_average
+                port (
+                    data_i   : in std_logic_vector (13 downto 0);
+                    clk_i    : in std_logic;
+                    rstn_i   : in std_logic;
+                    tag_i    : in unsigned (1 downto 0);
+                    data_o   : out std_logic_vector (13 downto 0));
+            end component;
+        
+            constant ZERO    : std_logic_vector(31 downto 0) := (others => '0');        -- Padding registers
+            signal tag_i     : unsigned(1 downto 0) := "01";                            -- Number of averaged samples
+        
+        
+        begin
+        
+        rp_average: moving_average
+                port map (
+                    data_i => adc_i,
+                    clk_i => clk_i,
+                    rstn_i => rstn_i,
+                    tag_i => tag_i,
+                    data_o => adc_o
+                );
+        
+        pbus: process(clk_i)
+        begin
+            if(rising_edge(clk_i)) then
+                if (rstn_i = '0') then
+                    sys_ack <= '0';
+                    tag_i <= "01";
+                else
+                    sys_ack <= sys_wen or sys_ren;  -- acknowledge transactions
+                    if sys_wen='1' then
+                        if sys_addr(19 downto 0) = X"00008" then
+                            tag_i <= unsigned(sys_wdata(1 downto 0));
+                        end if;
                     end if;
                 end if;
             end if;
-        end if;
-    end process;
-    
-    -- System error
-    sys_err <= '0';
-    
-    -- Decode address & read data
-    with sys_addr(19 downto 0) select
-        sys_rdata <=    X"FEEDBACC" when (X"00050"),  -- ID
-                        ZERO(31 downto 2) & std_logic_vector(tag_i) when (X"00008"),
-                        X"00000000" when others;
-    
-    end Behavioral;
+        end process;
+        
+        -- System error
+        sys_err <= '0';
+        
+        -- Decode address & read data
+        with sys_addr(19 downto 0) select
+            sys_rdata <=    X"FEEDBACC" when (X"00050"),                                    -- ID
+                            ZERO(31 downto 2) & std_logic_vector(tag_i) when (X"00008"),    -- Number of averaged samples
+                            X"00000000" when others;
+        
+        end Behavioral;
 
-Also, copy **red_pitaya_scope.v** from **/RedPitaya-FPGA/rtl/** to **Test_Moving_Average/rtl** and rename it to *loop_scope.v*. Also, change the name of the module inside the file from *red_pitaya_scope* to *loop_scope*.
+    If we take a closer look at the code, we can see the basics of our filter. We are creating a new component named *red_pitaya_proc*, which, in addition to the system bus, will accept the ADC signal from one of the inputs as *adc_in*, filter it, and return it to the *adc_out*.
+    We also declare and include a component named **moving_average**, which does the signal filtering. The 2-bit signal **tag_i** will contain the user-defined value of the number of averaged samples. In the process *pbus* we define the default value of *tag_i* and establish a connection to the system bus.
+    Each time the lower 20 bits of the system address are equal to *0x00008*, we update the value stored in *tag_i*. Finally we add the system bus reading. Our program will return the ID value *0xfeedbacc* when reading from address *0x00050* and the value of *tag_i* when the address is *0x00008*.
 
-Now create **red_pitaya_proc_tb.vhd** in **/Test_Moving_Average/tbn** and copy the code there:
+3.  Now, let's copy the **red_pitaya_scope.v** from **/RedPitaya-FPGA/rtl/** to **v0.94/rtl** and rename it to *loop_scope.v*. This is the basis of the *Oscilloscope* module which is used for acquiring data in the Oscilloscope application.
+    Later on, we will perform some modifications, which will help us visualize the filtered data. For now, rename the module name from *red_pitaya_scope* to *loop_scope*. 
 
-.. code-block:: vhdl
+#.  Create **red_pitaya_proc_tb.vhd** in **v0.94/tbn** and copy the code there.
 
-    library IEEE;
-    use IEEE.STD_LOGIC_1164.all;
-    use IEEE.numeric_std.all;
-    
-    entity red_pitaya_proc_tb is
-    end red_pitaya_proc_tb;
-    
-    architecture Behavioral of red_pitaya_proc_tb is
-    
-        component red_pitaya_proc
-            port (
-                clk_i   : in  std_logic;
-                rstn_i  : in  std_logic;
-    
-                sys_addr    : in  std_logic_vector(31 downto 0);  -- bus address
-                sys_wdata   : in  std_logic_vector(31 downto 0);  -- bus write data
-                sys_wen     : in  std_logic;                      -- bus write enable
-                sys_ren     : in  std_logic;                      -- bus read enable
-                sys_rdata   : out std_logic_vector(31 downto 0);  -- bus read data
-                sys_err     : out std_logic;                      -- bus error indicator
-                sys_ack     : out std_logic;                      -- bus acknowledge signal
-    
-                adc_i   : in  std_logic_vector(13 downto 0);
-                adc_o   : out std_logic_vector(13 downto 0)
-            );
-        end component;
-    
-        signal clk_i   : std_logic := '0';
-        signal rstn_i  : std_logic;
-        signal addr_i  : std_logic_vector(31 downto 0);
-        signal wdata_i : std_logic_vector(31 downto 0);
-        signal wen_i   : std_logic;
-        signal ren_i   : std_logic;
-        signal rdata_o : std_logic_vector(31 downto 0);
-        signal err_o   : std_logic;
-        signal ack_o   : std_logic;
-    
-        signal adc_i   : std_logic_vector(13 downto 0);
-        signal adc_o   : std_logic_vector(13 downto 0);
-    
-        signal i : integer range 0 to 30 := 0;
-        type memory_type is array (0 to 29) of integer range -128 to 127;
-        signal sine : memory_type := (0, 16, 31, 45, 58, 67, 74, 77, 77, 74, 67, 58, 45, 31, 16, 0,
-                                        -16, -31, -45, -58, -67, -74, -77, -77, -74, -67, -58, -45, -31, -16);
-    
-        -- Simulation control
-        signal sim : std_logic := '0';
-    
-        constant T  : time := 8 ns;
-    
-    begin
-        uut : red_pitaya_proc port map (
-                    clk_i       => clk_i,
-                    rstn_i      => rstn_i,
-                    sys_addr    => addr_i,
-                    sys_wdata   => wdata_i,
-                    sys_wen     => wen_i,
-                    sys_ren     => ren_i,
-                    sys_rdata   => rdata_o,
-                    sys_err     => err_o,
-                    sys_ack     => ack_o,
-                    adc_i       => adc_i,
-                    adc_o       => adc_o
+    .. code-block:: vhdl
+
+        library IEEE;
+        use IEEE.STD_LOGIC_1164.all;
+        use IEEE.numeric_std.all;
+        
+        entity red_pitaya_proc_tb is
+        end red_pitaya_proc_tb;
+        
+        architecture Behavioral of red_pitaya_proc_tb is
+        
+            component red_pitaya_proc
+                port (
+                    clk_i   : in  std_logic;
+                    rstn_i  : in  std_logic;
+        
+                    sys_addr    : in  std_logic_vector(31 downto 0);  -- bus address
+                    sys_wdata   : in  std_logic_vector(31 downto 0);  -- bus write data
+                    sys_wen     : in  std_logic;                      -- bus write enable
+                    sys_ren     : in  std_logic;                      -- bus read enable
+                    sys_rdata   : out std_logic_vector(31 downto 0);  -- bus read data
+                    sys_err     : out std_logic;                      -- bus error indicator
+                    sys_ack     : out std_logic;                      -- bus acknowledge signal
+        
+                    adc_i   : in  std_logic_vector(13 downto 0);
+                    adc_o   : out std_logic_vector(13 downto 0)
                 );
-    
-        -- Define the clock
-        clk_process : process
+            end component;
+        
+            signal clk_i   : std_logic := '0';
+            signal rstn_i  : std_logic;
+            signal addr_i  : std_logic_vector(31 downto 0);
+            signal wdata_i : std_logic_vector(31 downto 0);
+            signal wen_i   : std_logic;
+            signal ren_i   : std_logic;
+            signal rdata_o : std_logic_vector(31 downto 0);
+            signal err_o   : std_logic;
+            signal ack_o   : std_logic;
+        
+            signal adc_i   : std_logic_vector(13 downto 0);
+            signal adc_o   : std_logic_vector(13 downto 0);
+        
+            signal i : integer range 0 to 30 := 0;
+            type memory_type is array (0 to 29) of integer range -128 to 127;
+            signal sine : memory_type := (0, 16, 31, 45, 58, 67, 74, 77, 77, 74, 67, 58, 45, 31, 16, 0,
+                                            -16, -31, -45, -58, -67, -74, -77, -77, -74, -67, -58, -45, -31, -16);
+        
+            -- Simulation control
+            signal sim : std_logic := '0';
+        
+            constant T  : time := 8 ns;
+        
         begin
-            if sim = '0' then
-                clk_i <= '0';
-                wait for T/2;
-                clk_i <= '1';
-                wait for T/2;
-            else
-                wait;
-            end if;
-        end process;
-    
-        -- Generate a sine signal from the table
-        singen : process(clk_i)
-        begin
-            if (rising_edge(clk_i)) then
-    --            adc_i <= std_logic_vector(to_signed(20*sine(i), 14));
-                if (sine(i) > 0) then
-                    adc_i <= std_logic_vector(to_signed(2000, 14));
+            uut : red_pitaya_proc port map (
+                        clk_i       => clk_i,
+                        rstn_i      => rstn_i,
+                        sys_addr    => addr_i,
+                        sys_wdata   => wdata_i,
+                        sys_wen     => wen_i,
+                        sys_ren     => ren_i,
+                        sys_rdata   => rdata_o,
+                        sys_err     => err_o,
+                        sys_ack     => ack_o,
+                        adc_i       => adc_i,
+                        adc_o       => adc_o
+                    );
+        
+            -- Define the clock
+            clk_process : process
+            begin
+                if sim = '0' then
+                    clk_i <= '0';
+                    wait for T/2;
+                    clk_i <= '1';
+                    wait for T/2;
                 else
-                    adc_i <= std_logic_vector(to_signed(-2000, 14));
+                    wait;
                 end if;
-                i <= i + 1;
-                if (i = 29) then
-                    i <= 0;
+            end process;
+        
+            -- Generate a sine signal from the table
+            singen : process(clk_i)
+            begin
+                if (rising_edge(clk_i)) then
+        --            adc_i <= std_logic_vector(to_signed(20*sine(i), 14));
+                    if (sine(i) > 0) then
+                        adc_i <= std_logic_vector(to_signed(2000, 14));
+                    else
+                        adc_i <= std_logic_vector(to_signed(-2000, 14));
+                    end if;
+                    i <= i + 1;
+                    if (i = 29) then
+                        i <= 0;
+                    end if;
                 end if;
-            end if;
-        end process;
-    
-        -- Sets the simplified AXI bus signals
-        stim_proc : process
-        begin
-            rstn_i  <= '0';                 -- active reset
-            addr_i  <= X"00000000";
-            wdata_i <= X"00000000";
-            wen_i   <= '0'; ren_i <= '0';
-            wait for 10*T;
-    
-            rstn_i  <= '1';
-            addr_i  <= x"00000050";
-    	    ren_i   <= '1'; wait for T;
-            ren_i   <= '0'; wait for T;
-            wait for 10*T;
-    
-            rstn_i  <= '1';                 -- deactivate reset, write to register
-            addr_i  <= X"00000008";
-            wdata_i <= X"00000002";
-            wen_i   <= '1'; wait for T;
-            wen_i   <= '0'; wait for T;
-    
-            wait for 100*T;                 -- entry of a new value in the register
-            wdata_i <= x"00000003";
-            wen_i   <= '1';
-    
-            wait for T;
-            addr_i  <= X"00000000";
-            wen_i <= '0';
-    
-            wait for 10000*T;
-            sim <= '1';                     -- stop the simulation
-            wait;
-        end process;
-    
-    end;
+            end process;
+        
+            -- Sets the simplified AXI bus signals
+            stim_proc : process
+            begin
+                rstn_i  <= '0';                 -- active reset
+                addr_i  <= X"00000000";
+                wdata_i <= X"00000000";
+                wen_i   <= '0'; ren_i <= '0';
+                wait for 10*T;
+        
+                rstn_i  <= '1';
+                addr_i  <= x"00000050";
+                ren_i   <= '1'; wait for T;
+                ren_i   <= '0'; wait for T;
+                wait for 10*T;
+        
+                rstn_i  <= '1';                 -- deactivate reset, write to register
+                addr_i  <= X"00000008";
+                wdata_i <= X"00000002";
+                wen_i   <= '1'; wait for T;
+                wen_i   <= '0'; wait for T;
+        
+                wait for 100*T;                 -- entry of a new value in the register
+                wdata_i <= x"00000003";
+                wen_i   <= '1';
+        
+                wait for T;
+                addr_i  <= X"00000000";
+                wen_i <= '0';
+        
+                wait for 10000*T;
+                sim <= '1';                     -- stop the simulation
+                wait;
+            end process;
+        
+        end;
 
-Now we need to create a project generation script. Make a copy of the **red_pitaya_vivado_project_Z10.tcl** and name it **Average_project.tcl**, for example.
+    This is a simulation file, usually referred to as a testbench file, which we will use to simulate the filter functionality. The testbench is VHDL (or other HDL) code that simulates the behaviour of a design unit.
+    It is specifically designed to test the code of another HDL file/component (called a Device Under Test (DUT)). It differs from a normal file in the following ways:
 
-We need to change some strings in the file:
+        - **The entity portmap is empty** - there are no signals going in or out of a testbench. The DUT is included as a component.
+        - **Clock generation and time signals** - the testbench code contains a clock generator to synchronise the design and time signals (*time*, *wait for*) which cannot be used in a normal file.
+        - **Input stimulus generator** - the testbench generates the input signals to the DUT, selected to test the behaviour of the DUT and measure the timing characteristics.
+        - **Output checking** - the testbench can also check the DUT's output signals and report any discrepancies.
 
-.. code-block:: tcl
-    :force:
+    As we can see, all the input and output signals of our *red_pitaya_proc* DUT are defined as signals. The *clk_process* process generates the clock signal, and the *singen* process generates either a square or a sine wave, depending on which lines of code we uncomment.
+    Finally, we have a long *stim_proc* where we change the values of the input signals to our DUT. In our case, we change the *system address* and *system data to simulate writing to and reading from the specified registers and test the effect on the output signal.
+    The constant *T* defines the clock period, which corresponds to the 125 MHz core clock of the Red Pitaya.
 
-    cd prj/$prj_name 			→ cd prj/Examples/$prj_name
-    set path_brd ./../brd 		→ set path_brd ./../../brd
-    set path_sdc ../../sdc 		→ set path_sdc ../../../sdc
-    add_files  ../../$path_rtl 	→ add_files  ../../../$path_rtl
 
-Add a variable:
+5. 
 
-.. code-block:: tcl
-    :force:
 
-    set path_tbn tbn
 
-Also, we need to add the following strings after the string in the second code-block below:
 
-.. code-block:: tcl
-    :force:
 
-    add_files -fileset sim_1 -norecurse $path_tbn/red_pitaya_proc_tb.vhd
 
-.. code-block:: tcl
-    :force:
 
-    add_files $path_bd
 
-Now we can generate a project (the *-tclargs* parameter should be the same as the main project folder name):
 
-.. code-block:: shell-session
 
-    vivado -source Average_project.tcl -tclargs "Test_Moving_Average"
 
-We can test if everything is working OK, by running a **dummy Generate Bitstream** command. If everything is working correctly, the bitstream should generate without any issues.
+
+
 
 Edit the file **red_pitaya_top.sv**. Declare two new signals (*adc_i* and *adc_o*), connect them to the oscilloscope module, and replace *red_pitaya_scope* with our new *loop_scope*. The oscilloscope component connection code should be located around line 502:
 

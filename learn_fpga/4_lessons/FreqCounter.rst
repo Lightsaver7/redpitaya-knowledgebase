@@ -7,7 +7,9 @@ Frequency Counter
 Introduction
 ============
 
-On the way to a powerful acquisition system, let us make a quick detour and create a useful and simple project – |freq  counter|. Yes, to measure frequencies, one can use Red Pitaya’s native apps such as |Oscilloscope| or |Spectrum Analyzer|. However, our program will be able to determine frequencies with much higher resolution, and at the same time, we will learn how to use Red Pitaya’s 125 Msps 14-bit ADC and DAC peripherals in the FPGA program.
+On the way to a powerful acquisition system, let us make a quick detour and create a useful and simple project - |freq counter|.
+Yes, to measure frequencies, one can use Red Pitaya's native apps such as |Oscilloscope| or |Spectrum Analyzer|. However, our program will be able to determine frequencies with much higher resolution, and at the same time,
+we will learn how to use Red Pitaya's 125 Msps 14-bit ADC and DAC peripherals in the FPGA program.
 
 .. |freq  counter| raw:: html
 
@@ -29,9 +31,11 @@ On the way to a powerful acquisition system, let us make a quick detour and crea
     :align: center
 
 
-This project contains two separate parts: the *data acquisition* part with a frequency counter and LED data display, and the *signal generator* part. To communicate with these two parts, we use the General Purpose IO block for setting configuration values and reading the counter output.
+This project contains two separate parts: the *data acquisition* part with a frequency counter and LED data display, and the *signal generator* part. To communicate with these two parts,
+we use the General Purpose IO block for setting configuration values and reading the counter output.
 
-The frequency counter will be implemented in the |counting scheme|, where a period of time of a predefined number of signal oscillations is measured and then inverted and divided by the number of oscillations. Such a scheme can yield a much better frequency resolution, especially for low frequency signals, compared to the conventional method where the number of signal cycles is counted at a predefined gate time.
+The frequency counter will be implemented in the |counting scheme|, where a period of time of a predefined number of signal oscillations is measured and then inverted and divided by the number of oscillations.
+Such a scheme can yield a much better frequency resolution, especially for low frequency signals, compared to the conventional method where the number of signal cycles is counted at a predefined gate time.
 
 .. |counting scheme| raw:: html
 
@@ -90,7 +94,8 @@ Building the project
 
 Take a moment to examine the block design.
 
-If the Block Design is not open, click on **Flow => Open Block Design** from the top menu or select **Open Block Design** on the left-hand side of the window (under *IP INTEGRATOR*). When you are ready, click **Generate Bitstream** at the bottom-left part of the window to generate a bitstream file.
+If the Block Design is not open, click on **Flow => Open Block Design** from the top menu or select **Open Block Design** on the left-hand side of the window (under *IP INTEGRATOR*).
+When you are ready, click **Generate Bitstream** at the bottom-left part of the window to generate a bitstream file.
 
 After you confirm that both Synthesis and Implementation will be executed beforehand, the longer process starts. After successful completion of synthesis, implementation, and bitstream generation, the bit file can be found at **Examples/Frequency_counter/tmp/Frequency_counter/Frequency_counter.runs/impl_1/system_wrapper.bit**.
 
@@ -202,7 +207,9 @@ These parts will be described in detail below. You can skip the lengthy descript
 Processing system
 =================
 
-Let’s start with the most common part—the processing system IP core. Together with the AXI Interconnect and Processor System Reset blocks, these are the most common blocks in most of the Zynq 7000 FPGA applications. Since they take quite some space and have a lot of connections, we will join them in a single hierarchy block, so they will take less space and make block design more transparent. To create a hierarchy, select the desired blocks, right click, and select *Create Hierarchy*. From now on, we will put into hierarchies most of the blocks with related functionality.
+Let's start with the most common part—the processing system IP core. Together with the AXI Interconnect and Processor System Reset blocks, these are the most common blocks in most of the Zynq 7000 FPGA applications.
+Since they take quite some space and have a lot of connections, we will join them in a single hierarchy block, so they will take less space and make block design more transparent. To create a hierarchy, select the desired blocks, right click, and select *Create Hierarchy*.
+From now on, we will put into hierarchies most of the blocks with related functionality.
 
 .. figure:: img/FreqCounter1.png
     :width: 1000
@@ -215,20 +222,22 @@ Let’s start with the most common part—the processing system IP core. Togethe
 General Purpose Input-Output Core
 =================================
 
-In the :ref:`previous lesson <stopwatch>`, we learned how to write and read FPGA logic. We will use the same approach here for setting configurations such as the number of cycles and the signal generator’s phase increment. We will use the first GPIO port as an input to make the results of the frequency counter available to a program running on the Linux side. The second GPIO port will be used as a 32-bit output port, containing a 27-bit *phase_inc* value for the signal generator and a 5-bit *log2Ncycles* value for the frequency counter:
+In the :ref:`previous lesson <stopwatch>`, we learned how to write and read FPGA logic. We will use the same approach here for setting configurations such as the number of cycles and the signal generator's phase increment. We will use the first GPIO port as an input to make the results of the frequency counter available to a program running on the Linux side.
+The second GPIO port will be used as a 32-bit output port, containing a 27-bit *phase_inc* value for the signal generator and a 5-bit *log2Ncycles* value for the frequency counter:
 
 .. math::
 
     gpio2\_io\_o[31:0] = _{31}[ \lbrace \text{27-bit}\ phase\_inc \rbrace \lbrace \text{5-bit}\ log2Ncycles \rbrace ]_{0}
 
-If you ever need more configuration output bits, you can use Pavel Demin’s *axi_configuration* IP core with a custom number of bits in a single output port. As described above, the *axi_configuration* file can be found in the *Frequency_counter/core* folder, which is automatically created with the *make_cores.tcl* script.
+If you ever need more configuration output bits, you can use Pavel Demin's *axi_configuration* IP core with a custom number of bits in a single output port. As described above, the *axi_configuration* file can be found in the *Frequency_counter/core* folder, which is automatically created with the *make_cores.tcl* script.
 
 
 
 Signal Generator
 ================
 
-The Signal Generator hierarchy generates *sin (ωt)* and *cos(ωt)* signals with a user-defined frequency at the two DAC output ports. The analog signal is generated by three blocks: the *DDS compiler* for calculating 14-bit sinusoidal values; the *Clock Wizard* to create a double clock frequency which allows setting the two DAC channels on each input clock cycle; and the *AXI-4 Stream Red Pitaya DAC* core for setting signal values to the external DAC unit. We will use 125 MHz *adc_clock* as the input clock to achieve a 125 Msps data rate.
+The Signal Generator hierarchy generates *sin (ωt)* and *cos(ωt)* signals with a user-defined frequency at the two DAC output ports. The analog signal is generated by three blocks: the *DDS compiler* for calculating 14-bit sinusoidal values;
+the *Clock Wizard* to create a double clock frequency which allows setting the two DAC channels on each input clock cycle; and the *AXI-4 Stream Red Pitaya DAC* core for setting signal values to the external DAC unit. We will use 125 MHz *adc_clock* as the input clock to achieve a 125 Msps data rate.
 
 .. figure:: img/FreqCounter2.png
     :width: 1000
@@ -238,13 +247,15 @@ The Signal Generator hierarchy generates *sin (ωt)* and *cos(ωt)* signals with
 
 Frequency, amplitude, and other parameters can be set in the Direct Digital Synthesizer (DDS) re-customization dialog. The current DDS core settings will generate *sin (ωt)* on one DAC channel and *cos(ωt)* on the other, with a maximum amplitude of +/-1V (maximal range) on both.
 
-The synthesised signal frequency is in the |DDS compiler|, determined by a phase increment value at each clock cycle. A nice description of the signal synthesiser operation can be found in the DDS compiler product guide. The signal frequency can be set fixed at the design stage by choosing *Fixed* Phase Increment in the DDS re-customization dialog. In this case, the dialog automatically calculates the required constant phase increment for a desired frequency and frequency resolution. Note that the output frequency will be a divisor of the clock frequency and might therefore deviate from the requested frequency.
+The synthesised signal frequency is in the |DDS compiler|, determined by a phase increment value at each clock cycle. A nice description of the signal synthesiser operation can be found in the DDS compiler product guide. The signal frequency can be set fixed at the design stage by choosing *Fixed* Phase Increment in the DDS re-customization dialog.
+In this case, the dialog automatically calculates the required constant phase increment for a desired frequency and frequency resolution. Note that the output frequency will be a divisor of the clock frequency and might therefore deviate from the requested frequency.
 
 .. |DDS compiler| raw:: html
 
     <a href="https://www.xilinx.com/support/documentation/ip_documentation/dds_compiler/v6_0/pg141-dds-compiler.pdf" target="_blank">DDS compiler</a>
 
-Since we want to change the frequency during an operation, we choose *Streaming* Phase Increment in the re-customization dialog, which requires a phase increment value to be continuously supplied to the S_AXIS_PHASE input interface. The AXIS interface implements the |AXI4-Stream| protocol developed for fast directed data flow. It implements the basic handshake by utilising at least the *tvalid* and *tready* signals, but we will ignore even those for our nearly constant phase increment value. To create a continuous stream of the user-defined values, we use Pavel Demin’s |AXI4-Stream Constant| IP core, which converts the 32-bit input bus to the AXIS master interface.
+Since we want to change the frequency during an operation, we choose *Streaming* Phase Increment in the re-customization dialog, which requires a phase increment value to be continuously supplied to the S_AXIS_PHASE input interface. The AXIS interface implements the |AXI4-Stream| protocol developed for fast directed data flow.
+It implements the basic handshake by utilising at least the *tvalid* and *tready* signals, but we will ignore even those for our nearly constant phase increment value. To create a continuous stream of the user-defined values, we use Pavel Demin's |AXI4-Stream Constant| IP core, which converts the 32-bit input bus to the AXIS master interface.
 
 .. |AXI4-Stream| raw:: html
 
@@ -290,7 +301,9 @@ Data Acquisition
 AXI4-Stream Red Pitaya ADC Core
 -------------------------------
 
-The first block in the Data Acquisition hierarchy is the axis_red_pitaya_adc_v1_0 IP core, with two main features. First, it converts the external 125 MHz clock from *adc_clk_a* and *adc_clk_b* differential external ports into our programmable logic as an *adc_clk* clock. Second, it reads the ADC data from two input channels, which becomes available on each *adc_clk* clock cycle and makes it available over the AXI Stream (AXIS) interface M_AXIS. The IP core *axis_red_pitaya_adc_v1_0* makes use of two AXIS interface ports: the *axis_tvalid* port, which is always asserted, and the *axis_tdata* port, a 32-bit data port with new measurements available on every clock cycle. A 16-bit channel 2 value and a 16-bit channel 1 value are stored in the 32-bit *axis_tdata*.
+The first block in the Data Acquisition hierarchy is the axis_red_pitaya_adc_v1_0 IP core, with two main features. First, it converts the external 125 MHz clock from *adc_clk_a* and *adc_clk_b* differential external ports into our programmable logic as an *adc_clk* clock.
+Second, it reads the ADC data from two input channels, which becomes available on each *adc_clk* clock cycle and makes it available over the AXI Stream (AXIS) interface M_AXIS. The IP core *axis_red_pitaya_adc_v1_0* makes use of two AXIS interface ports: the *axis_tvalid* port, 
+which is always asserted, and the *axis_tdata* port, a 32-bit data port with new measurements available on every clock cycle. A 16-bit channel 2 value and a 16-bit channel 1 value are stored in the 32-bit *axis_tdata*.
 
 .. math::
 
@@ -404,7 +417,8 @@ It transforms ADC output interface M_AXIS with two channel values into two M_AXI
 
     endmodule
 
-It is interesting to note that if you want to create an input or an output interface on an RTL module, simply name the input or output ports with a standard interface notation (see |Vivado IP user guide|). For example, in the signal_split RTL block, port names: *S_AXIS_PORT1_tdata* and *S_AXIS_PORT1_tvalid* are automatically combined into an *S_AXIS_PORT1* interface.
+It is interesting to note that if you want to create an input or an output interface on an RTL module, simply name the input or output ports with a standard interface notation (see |Vivado IP user guide|). For example, in the signal_split RTL block, port names: *S_AXIS_PORT1_tdata* and *S_AXIS_PORT1_tvalid* 
+are automatically combined into an *S_AXIS_PORT1* interface.
 
 .. |Vivado IP user guide| raw:: html
 
@@ -415,7 +429,13 @@ It is interesting to note that if you want to create an input or an output inter
 Frequency Counter Module
 ========================
 
-The frequency counter hierarchy is based on the main RTL module *frequency_counter*, which has two main inputs: (1) the S_AXIS_IN* interface, which contains the measured single channel ADC signal, and (2) Ncycles, which specifies the number of signal oscillations for time measurement. Since the exact number of *Ncycles* is not important, the user specifies a 5-bit logarithmic value *log2Ncycles* via the GPIO core. *Ncycles* is then calculated as:
+The frequency counter hierarchy is based on the main RTL module *frequency_counter*, which has two main inputs:
+
+1. The S_AXIS_IN* interface, which contains the measured single channel ADC signal, and
+2. Ncycles, which specifies the number of signal oscillations for time measurement. 
+
+
+Since the exact number of *Ncycles* is not important, the user specifies a 5-bit logarithmic value *log2Ncycles* via the GPIO core. *Ncycles* is then calculated as:
 
 .. math::
 
@@ -435,7 +455,8 @@ Using a |pow2| RTL module. See the figure below.
     Frequency Counter Hierarchy
 
 
-The verilog |counter code| of the *frequency_counter* RTL module has three main parts. The first part directly wires the *S_AXIS_IN* to the *M_AXIS_OUT* interface so that data is  transferred to the next block for processing. Instead, we could split the AXIS interface before the module. However, this would require an additional IP core – the AXI3-Stream Broadcaster.
+The verilog |counter code| of the *frequency_counter* RTL module has three main parts. The first part directly wires the *S_AXIS_IN* to the *M_AXIS_OUT* interface so that data is  transferred to the next block for processing.
+Instead, we could split the AXIS interface before the module. However, this would require an additional IP core - the AXI3-Stream Broadcaster.
 
 .. |counter code| raw:: html
 
@@ -543,9 +564,11 @@ The verilog |counter code| of the *frequency_counter* RTL module has three main 
     endmodule
 
 
-The second part of the code sets the *state* buffer depending on the measured signal value relative to the high or low threshold values. If the signal is above the high threshold value, the *state* buffer is set to one, and if the signal is below the low threshold value, the *state* buffer is set to 0. Using two threshold values helps to prevent false state transitions in the case of noisy data.
+The second part of the code sets the *state* buffer depending on the measured signal value relative to the high or low threshold values. If the signal is above the high threshold value, the *state* buffer is set to one, and if the signal is below the low threshold value, 
+the *state* buffer is set to 0. Using two threshold values helps to prevent false state transitions in the case of noisy data.
 
-The third section of code increments the *counts* register with each clock cycle, increments the *cycles* register with each positive state transition, and clears the *cycles* and *counter* registers when the number of cycles exceeds *Ncycles*. Before clearing the counter, its value is copied to the *counter_output* register, which is wired to the output port. The result of the frequency counter module is therefore a number of clock cycles in a time period of *Ncycles* signal oscillations, updated on each of the *Ncycles* signal oscillations.
+The third section of code increments the *counts* register with each clock cycle, increments the *cycles* register with each positive state transition, and clears the *cycles* and *counter* registers when the number of cycles exceeds *Ncycles*. Before clearing the counter, 
+its value is copied to the *counter_output* register, which is wired to the output port. The result of the frequency counter module is therefore a number of clock cycles in a time period of *Ncycles* signal oscillations, updated on each of the *Ncycles* signal oscillations.
 The frequency is then calculated as
 
 .. math::
@@ -558,7 +581,8 @@ Signal Decode Module
 ====================
 
 
-The final block in the ADC signal chain and in the block design is the *signal_decode* RTL module. Its purpose is to display the ADC value on the Red Pitaya LED bar, mostly for visual effects. The implementation is a simple 8-bit |decoder| from Vivado’s Language Templates. In the |signal decoder| the three MSBs of the ADC value are decoded and displayed on LEDs.
+The final block in the ADC signal chain and in the block design is the *signal_decode* RTL module. Its purpose is to display the ADC value on the Red Pitaya LED bar, mostly for visual effects. The implementation is a simple 8-bit |decoder| from Vivado's Language Templates. 
+In the |signal decoder| the three MSBs of the ADC value are decoded and displayed on LEDs.
 
 .. |decoder| raw:: html
 

@@ -60,3 +60,51 @@ Here is how you can separate create a separate project folder that contains all 
 
         vivado -source New_projct.tcl -tclargs <PRJ_project_flag>
 
+
+
+
+
+
+
+
+
+..TODO -- changes to the file.
+
+    
+We need to change some strings in the file:
+
+.. code-block:: tcl
+    :force:
+
+    cd prj/$prj_name 			→ cd prj/Examples/$prj_name
+    set path_brd ./../brd 		→ set path_brd ./../../brd
+    set path_sdc ../../sdc 		→ set path_sdc ../../../sdc
+    add_files  ../../$path_rtl 	→ add_files  ../../../$path_rtl
+
+Add a variable:
+
+.. code-block:: tcl
+    :force:
+
+    set path_tbn tbn
+
+Also, we need to add the following strings after the string in the second code-block below:
+
+.. code-block:: tcl
+    :force:
+
+    add_files -fileset sim_1 -norecurse $path_tbn/red_pitaya_proc_tb.vhd
+
+.. code-block:: tcl
+    :force:
+
+    add_files $path_bd
+
+Now we can generate a project (the *-tclargs* parameter should be the same as the main project folder name):
+
+.. code-block:: shell-session
+
+    vivado -source Average_project.tcl -tclargs "Test_Moving_Average"
+
+We can test if everything is working OK, by running a **dummy Generate Bitstream** command. If everything is working correctly, the bitstream should generate without any issues.
+
